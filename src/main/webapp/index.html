@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>City Infrastructure Demo</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+
+<body>
+  <div class="wrap">
+
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">CI</div>
+        <div>
+          <div class="h1">City Infrastructure Issue Tracker</div>
+          <div class="sub">POC: Tomcat (WAR) + Postgres + Leaflet map (Docker Compose)</div>
+        </div>
+      </div>
+      <span class="chip">localhost:8080</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2 style="margin:0 0 6px">Interactive Map</h2>
+        <p class="muted" style="margin:0 0 12px">
+          Click anywhere on the map to choose a location, then submit a report. Markers persist in Postgres.
+        </p>
+
+        <div class="btnrow">
+          <button class="btn" onclick="document.getElementById('mapcard').scrollIntoView({behavior:'smooth'})">🗺️ Map</button>
+          <button class="btn" onclick="document.getElementById('reportcard').scrollIntoView({behavior:'smooth'})">📝 Report</button>
+          <a class="btn" href="/db">🗄️ DB Status</a>
+          <a class="btn" href="/hello">🔌 Backend</a>
+        </div>
+
+        <div id="mapcard" style="margin-top:14px">
+          <div id="map"></div>
+          <small>Tip: If markers don’t load, check <code>/api/issues</code> and confirm the DB table exists.</small>
+        </div>
+      </div>
+
+      <div class="card" id="reportcard">
+        <h2 style="margin:0 0 6px">Report an Issue</h2>
+        <p class="muted" style="margin:0 0 12px">
+          Proof-of-concept form. In the real project, this would be gated by login + roles.
+        </p>
+
+        <div class="row2">
+          <div class="field">
+            <label>Category</label>
+            <select id="category">
+              <option>Pothole</option>
+              <option>Streetlight</option>
+              <option>Flooding</option>
+              <option>Sidewalk</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>Severity (1-5)</label>
+            <input id="severity" type="number" min="1" max="5" value="3"/>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Description</label>
+          <textarea id="description" placeholder="Short description..."></textarea>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Latitude</label>
+            <input id="lat" readonly placeholder="Click the map"/>
+          </div>
+          <div class="field">
+            <label>Longitude</label>
+            <input id="lng" readonly placeholder="Click the map"/>
+          </div>
+        </div>
+
+        <div class="btnrow">
+          <button class="btn" onclick="submitIssue()">Submit</button>
+          <button class="btn" onclick="refreshMarkers()">Refresh markers</button>
+        </div>
+
+        <div id="msg" class="muted" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <h2 style="margin:0 0 6px">Demo Notes</h2>
+      <p class="muted" style="margin:0">
+        For class hosting: run this stack on a lab/spare machine and access it via <code>http://&lt;machine-ip&gt;:8080</code>.
+        A custom domain is optional for the demo.
+      </p>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([29.9511, -90.0715], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let pickedMarker = null;
+    let markersLayer = L.layerGroup().addTo(map);
+
+    function setPicked(lat, lng) {
+      document.getElementById('lat').value = lat.toFixed(6);
+      document.getElementById('lng').value = lng.toFixed(6);
+
+      if (pickedMarker) map.removeLayer(pickedMarker);
+      pickedMarker = L.marker([lat, lng]).addTo(map).bindPopup("New report location").openPopup();
+    }
+
+    map.on('click', (e) => setPicked(e.latlng.lat, e.latlng.lng));
+
+    async function loadIssues() {
+      markersLayer.clearLayers();
+      const res = await fetch('/api/issues');
+      const issues = await res.json();
+
+      if (!Array.isArray(issues)) {
+        document.getElementById('msg').textContent = "Error loading issues: " + (issues.error || "unknown");
+        return;
+      }
+
+      issues.forEach(i => {
+        L.marker([i.lat, i.lng]).addTo(markersLayer)
+          .bindPopup(`<b>${escapeHtml(i.category)}</b> (sev ${i.severity})<br/>${escapeHtml(i.description)}`);
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;");
+    }
+
+    async function submitIssue() {
+      const lat = document.getElementById('lat').value;
+      const lng = document.getElementById('lng').value;
+
+      if (!lat || !lng) {
+        document.getElementById('msg').textContent = "Click the map to choose a location first.";
+        return;
+      }
+
+      const form = new URLSearchParams();
+      form.set('category', document.getElementById('category').value);
+      form.set('severity', document.getElementById('severity').value);
+      form.set('description', document.getElementById('description').value);
+      form.set('lat', lat);
+      form.set('lng', lng);
+
+      const res = await fetch('/api/issues/create', { method:'POST', body: form });
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById('msg').textContent = `Saved ✅ (id=${data.id}). Reloading markers...`;
+        await loadIssues();
+      } else {
+        document.getElementById('msg').textContent = "Error: " + (data.error || "unknown");
+      }
+    }
+
+    async function refreshMarkers() {
+      document.getElementById('msg').textContent = "Refreshing markers...";
+      await loadIssues();
+      document.getElementById('msg').textContent = "Done.";
+    }
+
+    // load markers on page load
+    loadIssues();
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>City Infrastructure Map</title>
+  <link rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body { margin:0; font-family: system-ui; background:#0b1220; color:white; }
+    #map { height: 80vh; }
+    .panel { padding: 16px; background:#121b2f; }
+    input, select { padding:8px; margin:4px 0; width:100%; }
+    button { padding:10px; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="panel">
+  <h3>Report Issue</h3>
+  <select id="category">
+    <option>Pothole</option>
+    <option>Streetlight</option>
+    <option>Flooding</option>
+  </select>
+
+  <input id="description" placeholder="Description"/>
+  <input id="severity" type="number" min="1" max="5" value="3"/>
+  <input id="lat" readonly placeholder="Latitude"/>
+  <input id="lng" readonly placeholder="Longitude"/>
+  <button onclick="submitIssue()">Submit</button>
+  <p><a href="/" style="color:#6ea8fe">Back</a></p>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map').setView([29.9511, -90.0715], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  map.on('click', e => {
+    document.getElementById('lat').value = e.latlng.lat;
+    document.getElementById('lng').value = e.latlng.lng;
+  });
+
+  async function loadIssues() {
+    const res = await fetch('/api/issues');
+    const issues = await res.json();
+    issues.forEach(i => {
+      L.marker([i.lat, i.lng]).addTo(map)
+        .bindPopup(`<b>${i.category}</b><br/>${i.description}`);
+    });
+  }
+
+  async function submitIssue() {
+    const form = new URLSearchParams();
+    form.append("category", document.getElementById("category").value);
+    form.append("description", document.getElementById("description").value);
+    form.append("severity", document.getElementById("severity").value);
+    form.append("lat", document.getElementById("lat").value);
+    form.append("lng", document.getElementById("lng").value);
+
+    await fetch('/api/issues/create', {
+      method: 'POST',
+      body: form
+    });
+
+    location.reload();
+  }
+
+  loadIssues();
+</script>
+
+</body>
+</html>

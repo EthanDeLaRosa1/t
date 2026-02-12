@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee
+                             https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+
+  <welcome-file-list>
+    <welcome-file>index.html</welcome-file>
+  </welcome-file-list>
+
+  <servlet>
+    <servlet-name>HelloServlet</servlet-name>
+    <servlet-class>com.example.HelloServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>HelloServlet</servlet-name>
+    <url-pattern>/hello</url-pattern>
+  </servlet-mapping>
+
+  <servlet>
+    <servlet-name>DbCheckServlet</servlet-name>
+    <servlet-class>com.example.DbCheckServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>DbCheckServlet</servlet-name>
+    <url-pattern>/db</url-pattern>
+  </servlet-mapping>
+
+  <servlet>
+    <servlet-name>IssuesServlet</servlet-name>
+    <servlet-class>com.example.IssuesServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>IssuesServlet</servlet-name>
+    <url-pattern>/api/issues</url-pattern>
+  </servlet-mapping>
+
+  <servlet>
+    <servlet-name>CreateIssueServlet</servlet-name>
+    <servlet-class>com.example.CreateIssueServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>CreateIssueServlet</servlet-name>
+    <url-pattern>/api/issues/create</url-pattern>
+  </servlet-mapping>
+
+</web-app>
